@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // ----------------------------------------------------------------------------
-// Copyright 2019-2022 Arm Limited
+// Copyright 2019-2024 Arm Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License. You may obtain a copy
@@ -38,6 +38,7 @@
 #endif
 
 #include <cstdio>
+#include <cstring>
 
 // ============================================================================
 // vfloat4 data type
@@ -106,7 +107,7 @@ struct vfloat4
 	 */
 	template <int l> ASTCENC_SIMD_INLINE void set_lane(float a)
 	{
-		m = vld1q_lane_f32(&a, m, l);
+		m = vsetq_lane_f32(a, m, l);
 	}
 
 	/**
@@ -114,7 +115,7 @@ struct vfloat4
 	 */
 	static ASTCENC_SIMD_INLINE vfloat4 zero()
 	{
-		return vfloat4(vdupq_n_f32(0.0f));
+		return vfloat4(0.0f);
 	}
 
 	/**
@@ -122,7 +123,7 @@ struct vfloat4
 	 */
 	static ASTCENC_SIMD_INLINE vfloat4 load1(const float* p)
 	{
-		return vfloat4(vdupq_n_f32(*p));
+		return vfloat4(vld1q_dup_f32(p));
 	}
 
 	/**
@@ -131,15 +132,6 @@ struct vfloat4
 	static ASTCENC_SIMD_INLINE vfloat4 loada(const float* p)
 	{
 		return vfloat4(vld1q_f32(p));
-	}
-
-	/**
-	 * @brief Factory that returns a vector containing the lane IDs.
-	 */
-	static ASTCENC_SIMD_INLINE vfloat4 lane_id()
-	{
-		alignas(16) float data[4] { 0.0f, 1.0f, 2.0f, 3.0f };
-		return vfloat4(vld1q_f32(data));
 	}
 
 	/**
@@ -202,17 +194,21 @@ struct vint4
 	 */
 	ASTCENC_SIMD_INLINE explicit vint4(const uint8_t *p)
 	{
-		uint32x2_t t8 {};
-		// Cast is safe - NEON loads are allowed to be unaligned
-		t8 = vld1_lane_u32((const uint32_t*)p, t8, 0);
-		uint16x4_t t16 = vget_low_u16(vmovl_u8(vreinterpret_u8_u32(t8)));
-		m = vreinterpretq_s32_u32(vmovl_u16(t16));
+#if ASTCENC_SVE == 0
+	// Cast is safe - NEON loads are allowed to be unaligned
+	uint32x2_t t8 = vld1_dup_u32(reinterpret_cast<const uint32_t*>(p));
+	uint16x4_t t16 = vget_low_u16(vmovl_u8(vreinterpret_u8_u32(t8)));
+	m = vreinterpretq_s32_u32(vmovl_u16(t16));
+#else
+	svint32_t data = svld1ub_s32(svptrue_pat_b32(SV_VL4), p);
+	m = svget_neonq(data);
+#endif
 	}
 
 	/**
 	 * @brief Construct from 1 scalar value replicated across all lanes.
 	 *
-	 * Consider using vfloat4::zero() for constexpr zeros.
+	 * Consider using zero() for constexpr zeros.
 	 */
 	ASTCENC_SIMD_INLINE explicit vint4(int a)
 	{
@@ -251,7 +247,7 @@ struct vint4
 	 */
 	template <int l> ASTCENC_SIMD_INLINE void set_lane(int a)
 	{
-		m = vld1q_lane_s32(&a, m, l);
+		m = vsetq_lane_s32(a, m, l);
 	}
 
 	/**
@@ -271,6 +267,16 @@ struct vint4
 	}
 
 	/**
+	 * @brief Factory that returns a vector loaded from unaligned memory.
+	 */
+	static ASTCENC_SIMD_INLINE vint4 load(const uint8_t* p)
+	{
+		vint4 data;
+		std::memcpy(&data.m, p, 4 * sizeof(int));
+		return data;
+	}
+
+	/**
 	 * @brief Factory that returns a vector loaded from 16B aligned memory.
 	 */
 	static ASTCENC_SIMD_INLINE vint4 loada(const int* p)
@@ -283,7 +289,7 @@ struct vint4
 	 */
 	static ASTCENC_SIMD_INLINE vint4 lane_id()
 	{
-		alignas(ASTCENC_VECALIGN) static const int data[4] { 0, 1, 2, 3 };
+		alignas(16) static const int data[4] { 0, 1, 2, 3 };
 		return vint4(vld1q_s32(data));
 	}
 
@@ -347,6 +353,14 @@ struct vmask4
 	}
 
 	/**
+	 * @brief Get the scalar from a single lane.
+	 */
+	template <int32_t l> ASTCENC_SIMD_INLINE bool lane() const
+	{
+		return vgetq_lane_u32(m, l) != 0;
+	}
+
+	/**
 	 * @brief The vector ...
 	 */
 	uint32x4_t m;
@@ -400,6 +414,22 @@ ASTCENC_SIMD_INLINE unsigned int mask(vmask4 a)
 
 	uint32x4_t tmp = vshrq_n_u32(a.m, 31);
 	return vaddvq_u32(vshlq_u32(tmp, shift));
+}
+
+/**
+ * @brief True if any lanes are enabled, false otherwise.
+ */
+ASTCENC_SIMD_INLINE bool any(vmask4 a)
+{
+	return vmaxvq_u32(a.m) != 0;
+}
+
+/**
+ * @brief True if all lanes are enabled, false otherwise.
+ */
+ASTCENC_SIMD_INLINE bool all(vmask4 a)
+{
+	return vminvq_u32(a.m) != 0;
 }
 
 // ============================================================================
@@ -553,15 +583,6 @@ ASTCENC_SIMD_INLINE vint4 hmax(vint4 a)
 }
 
 /**
- * @brief Return the horizontal sum of a vector.
- */
-ASTCENC_SIMD_INLINE int hadd_s(vint4 a)
-{
-	int32x2_t t = vadd_s32(vget_high_s32(a.m), vget_low_s32(a.m));
-	return vget_lane_s32(vpadd_s32(t, t), 0);
-}
-
-/**
  * @brief Store a vector to a 16B aligned memory address.
  */
 ASTCENC_SIMD_INLINE void storea(vint4 a, int* p)
@@ -578,39 +599,33 @@ ASTCENC_SIMD_INLINE void store(vint4 a, int* p)
 }
 
 /**
+ * @brief Store a vector to an unaligned memory address.
+ */
+ASTCENC_SIMD_INLINE void store(vint4 a, uint8_t* p)
+{
+	std::memcpy(p, &a.m, sizeof(int) * 4);
+}
+
+/**
  * @brief Store lowest N (vector width) bytes into an unaligned address.
  */
 ASTCENC_SIMD_INLINE void store_nbytes(vint4 a, uint8_t* p)
 {
-	vst1q_lane_s32((int32_t*)p, a.m, 0);
+	vst1q_lane_s32(reinterpret_cast<int32_t*>(p), a.m, 0);
 }
 
 /**
- * @brief Gather N (vector width) indices from the array.
+ * @brief Pack and store low 8 bits of each vector lane.
  */
-ASTCENC_SIMD_INLINE vint4 gatheri(const int* base, vint4 indices)
-{
-	alignas(16) int idx[4];
-	storea(indices, idx);
-	alignas(16) int vals[4];
-	vals[0] = base[idx[0]];
-	vals[1] = base[idx[1]];
-	vals[2] = base[idx[2]];
-	vals[3] = base[idx[3]];
-	return vint4(vals);
-}
-
-/**
- * @brief Pack low 8 bits of N (vector width) lanes into bottom of vector.
- */
-ASTCENC_SIMD_INLINE vint4 pack_low_bytes(vint4 a)
+ASTCENC_SIMD_INLINE void pack_and_store_low_bytes(vint4 a, uint8_t* data)
 {
 	alignas(16) uint8_t shuf[16] {
 		0, 4, 8, 12,   0, 0, 0, 0,   0, 0, 0, 0,   0, 0, 0, 0
 	};
 	uint8x16_t idx = vld1q_u8(shuf);
 	int8x16_t av = vreinterpretq_s8_s32(a.m);
-	return vint4(vreinterpretq_s32_s8(vqtbl1q_s8(av, idx)));
+	a = vint4(vreinterpretq_s32_s8(vqtbl1q_s8(av, idx)));
+	store_nbytes(a, data);
 }
 
 /**
@@ -789,20 +804,11 @@ ASTCENC_SIMD_INLINE vfloat4 select(vfloat4 a, vfloat4 b, vmask4 cond)
 }
 
 /**
- * @brief Return lanes from @c b if MSB of @c cond is set, else @c a.
- */
-ASTCENC_SIMD_INLINE vfloat4 select_msb(vfloat4 a, vfloat4 b, vmask4 cond)
-{
-	static const uint32x4_t msb = vdupq_n_u32(0x80000000u);
-	uint32x4_t mask = vcgeq_u32(cond.m, msb);
-	return vfloat4(vbslq_f32(mask, b.m, a.m));
-}
-
-/**
  * @brief Load a vector of gathered results from an array;
  */
 ASTCENC_SIMD_INLINE vfloat4 gatherf(const float* base, vint4 indices)
 {
+#if ASTCENC_SVE == 0
 	alignas(16) int idx[4];
 	storea(indices, idx);
 	alignas(16) float vals[4];
@@ -811,8 +817,32 @@ ASTCENC_SIMD_INLINE vfloat4 gatherf(const float* base, vint4 indices)
 	vals[2] = base[idx[2]];
 	vals[3] = base[idx[3]];
 	return vfloat4(vals);
+#else
+	svint32_t offsets = svset_neonq_s32(svundef_s32(), indices.m);
+	svfloat32_t data = svld1_gather_s32index_f32(svptrue_pat_b32(SV_VL4), base, offsets);
+	return vfloat4(svget_neonq_f32(data));
+#endif
 }
 
+/**
+ * @brief Load a vector of gathered results from an array using byte indices from memory
+ */
+template<>
+ASTCENC_SIMD_INLINE vfloat4 gatherf_byte_inds<vfloat4>(const float* base, const uint8_t* indices)
+{
+#if ASTCENC_SVE == 0
+	alignas(16) float vals[4];
+	vals[0] = base[indices[0]];
+	vals[1] = base[indices[1]];
+	vals[2] = base[indices[2]];
+	vals[3] = base[indices[3]];
+	return vfloat4(vals);
+#else
+	svint32_t offsets = svld1ub_s32(svptrue_pat_b32(SV_VL4), indices);
+	svfloat32_t data = svld1_gather_s32index_f32(svptrue_pat_b32(SV_VL4), base, offsets);
+	return vfloat4(svget_neonq_f32(data));
+#endif
+}
 /**
  * @brief Store a vector to an unaligned memory address.
  */
@@ -842,7 +872,7 @@ ASTCENC_SIMD_INLINE vint4 float_to_int(vfloat4 a)
  */
 ASTCENC_SIMD_INLINE vint4 float_to_int_rtn(vfloat4 a)
 {
-	a = round(a);
+	a = a + vfloat4(0.5f);
 	return vint4(vcvtq_s32_f32(a.m));
 }
 
@@ -874,7 +904,7 @@ ASTCENC_SIMD_INLINE vint4 float_to_float16(vfloat4 a)
 static inline uint16_t float_to_float16(float a)
 {
 	vfloat4 av(a);
-	return float_to_float16(av).lane<0>();
+	return static_cast<uint16_t>(float_to_float16(av).lane<0>());
 }
 
 /**
@@ -922,6 +952,156 @@ ASTCENC_SIMD_INLINE vint4 float_as_int(vfloat4 a)
 ASTCENC_SIMD_INLINE vfloat4 int_as_float(vint4 v)
 {
 	return vfloat4(vreinterpretq_f32_s32(v.m));
+}
+
+/*
+ * Table structure for a 16x 8-bit entry table.
+ */
+struct vtable4_16x8 {
+	uint8x16_t t0;
+};
+
+/*
+ * Table structure for a 32x 8-bit entry table.
+ */
+struct vtable4_32x8 {
+	uint8x16x2_t t01;
+};
+
+/*
+ * Table structure for a 64x 8-bit entry table.
+ */
+struct vtable4_64x8 {
+	uint8x16x4_t t0123;
+};
+
+/**
+ * @brief Prepare a vtable lookup table for 16x 8-bit entry table.
+ */
+ASTCENC_SIMD_INLINE void vtable_prepare(
+	vtable4_16x8& table,
+	const uint8_t* data
+) {
+	table.t0 = vld1q_u8(data);
+}
+
+/**
+ * @brief Prepare a vtable lookup table for 32x 8-bit entry table.
+ */
+ASTCENC_SIMD_INLINE void vtable_prepare(
+	vtable4_32x8& table,
+	const uint8_t* data
+) {
+	table.t01 = uint8x16x2_t {
+		vld1q_u8(data),
+		vld1q_u8(data + 16)
+	};
+}
+
+/**
+ * @brief Prepare a vtable lookup table 64x 8-bit entry table.
+ */
+ASTCENC_SIMD_INLINE void vtable_prepare(
+	vtable4_64x8& table,
+	const uint8_t* data
+) {
+	table.t0123 = uint8x16x4_t {
+		vld1q_u8(data),
+		vld1q_u8(data + 16),
+		vld1q_u8(data + 32),
+		vld1q_u8(data + 48)
+	};
+}
+
+/**
+ * @brief Perform a vtable lookup in a 16x 8-bit table with 32-bit indices.
+ */
+ASTCENC_SIMD_INLINE vint4 vtable_lookup_32bit(
+	const vtable4_16x8& tbl,
+	vint4 idx
+) {
+	// Set index byte above max index for unused bytes so table lookup returns zero
+	int32x4_t idx_masked = vorrq_s32(idx.m, vdupq_n_s32(0xFFFFFF00));
+	uint8x16_t idx_bytes = vreinterpretq_u8_s32(idx_masked);
+
+	return vint4(vreinterpretq_s32_u8(vqtbl1q_u8(tbl.t0, idx_bytes)));
+}
+
+/**
+ * @brief Perform a vtable lookup in a 32x 8-bit table with 32-bit indices.
+ */
+ASTCENC_SIMD_INLINE vint4 vtable_lookup_32bit(
+	const vtable4_32x8& tbl,
+	vint4 idx
+) {
+	// Set index byte above max index for unused bytes so table lookup returns zero
+	int32x4_t idx_masked = vorrq_s32(idx.m, vdupq_n_s32(0xFFFFFF00));
+	uint8x16_t idx_bytes = vreinterpretq_u8_s32(idx_masked);
+
+	return vint4(vreinterpretq_s32_u8(vqtbl2q_u8(tbl.t01, idx_bytes)));
+}
+
+/**
+ * @brief Perform a vtable lookup in a 64x 8-bit table with 32-bit indices.
+ */
+ASTCENC_SIMD_INLINE vint4 vtable_lookup_32bit(
+	const vtable4_64x8& tbl,
+	vint4 idx
+) {
+	// Set index byte above max index for unused bytes so table lookup returns zero
+	int32x4_t idx_masked = vorrq_s32(idx.m, vdupq_n_s32(0xFFFFFF00));
+	uint8x16_t idx_bytes = vreinterpretq_u8_s32(idx_masked);
+
+	return vint4(vreinterpretq_s32_u8(vqtbl4q_u8(tbl.t0123, idx_bytes)));
+}
+
+/**
+ * @brief Return a vector of interleaved RGBA data.
+ *
+ * Input vectors have the value stored in the bottom 8 bits of each lane,
+ * with high  bits set to zero.
+ *
+ * Output vector stores a single RGBA texel packed in each lane.
+ */
+ASTCENC_SIMD_INLINE vint4 interleave_rgba8(vint4 r, vint4 g, vint4 b, vint4 a)
+{
+	return r + lsl<8>(g) + lsl<16>(b) + lsl<24>(a);
+}
+
+/**
+ * @brief Store a single vector lane to an unaligned address.
+ */
+ASTCENC_SIMD_INLINE void store_lane(uint8_t* base, int data)
+{
+	std::memcpy(base, &data, sizeof(int));
+}
+
+/**
+ * @brief Store a vector, skipping masked lanes.
+ *
+ * All masked lanes must be at the end of vector, after all non-masked lanes.
+ */
+ASTCENC_SIMD_INLINE void store_lanes_masked(uint8_t* base, vint4 data, vmask4 mask)
+{
+	if (mask.lane<3>())
+	{
+		store(data, base);
+	}
+	else if (mask.lane<2>() != 0.0f)
+	{
+		store_lane(base + 0, data.lane<0>());
+		store_lane(base + 4, data.lane<1>());
+		store_lane(base + 8, data.lane<2>());
+	}
+	else if (mask.lane<1>() != 0.0f)
+	{
+		store_lane(base + 0, data.lane<0>());
+		store_lane(base + 4, data.lane<1>());
+	}
+	else if (mask.lane<0>() != 0.0f)
+	{
+		store_lane(base + 0, data.lane<0>());
+	}
 }
 
 #define ASTCENC_USE_NATIVE_POPCOUNT 1
