@@ -200,12 +200,20 @@ target_sources(${myTargetLib} PRIVATE ${libSources})
 #-----------------------------------------------------
 
 if (BUILD_LINUX)
-    # Enable all warnings, and also enable f16c sims op (only x64 though)
+    # Enable all warnings
     target_compile_options(${myTargetLib} PRIVATE -W -Wall 
-        -mavx2 -mfma -mf16c 
         -fno-exceptions -fno-rtti
         -fdata-sections -ffunction-sections
     )
+    
+    # Architecture-specific optimizations
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+        # Enable NEON for ARM64
+        target_compile_options(${myTargetLib} PRIVATE -march=armv8-a+simd)
+    else()
+        # Enable AVX2/F16C for x86_64
+        target_compile_options(${myTargetLib} PRIVATE -mavx2 -mfma -mf16c)
+    endif()
 
     # this is already done by pch for libkram, but other projects need the force include inherited
     # force include (public)
@@ -220,13 +228,21 @@ if (BUILD_MAC)
         XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH "NO"
     )
 
-    # Enable all warnings, and also enable f16c sims op (only x64 though)
+    # Enable all warnings
     target_compile_options(${myTargetLib} PRIVATE -W -Wall 
-        -mavx2 -mfma -mf16c 
         -fobjc-arc
         -fno-exceptions -fno-rtti
         -fdata-sections -ffunction-sections
     )
+    
+    # Architecture-specific optimizations
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+        # Enable NEON for ARM64 (Apple Silicon)
+        target_compile_options(${myTargetLib} PRIVATE -march=armv8-a+simd)
+    else()
+        # Enable AVX2/F16C for x86_64
+        target_compile_options(${myTargetLib} PRIVATE -mavx2 -mfma -mf16c)
+    endif()
 
     # this is already done by pch for libkram, but other projects need the force include inherited
     # force include (public)

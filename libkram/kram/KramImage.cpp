@@ -689,6 +689,11 @@ bool KramDecoder::decodeBlocks(
                             // Returns true if the block uses 3 color punchthrough alpha mode.
                             rgbcx::unpack_bc1(srcBlock, pixels);
                             break;
+                        case MyMTLPixelFormatBC2_RGBA:
+                        case MyMTLPixelFormatBC2_RGBA_sRGB:
+                            // BC2/DXT3 uses explicit 4-bit alpha
+                            squish::Decompress((uint8_t*)pixels, srcBlock, squish::kBC2);
+                            break;
                         case MyMTLPixelFormatBC3_RGBA_sRGB:
                         case MyMTLPixelFormatBC3_RGBA:
                             // Returns false if the block uses 3 color punchthrough alpha mode.
@@ -775,6 +780,10 @@ bool KramDecoder::decodeBlocks(
                 case MyMTLPixelFormatBC1_RGBA:
                 case MyMTLPixelFormatBC1_RGBA_sRGB:
                     format = squish::kBC1;
+                    break;
+                case MyMTLPixelFormatBC2_RGBA:
+                case MyMTLPixelFormatBC2_RGBA_sRGB:
+                    format = squish::kBC2;
                     break;
                 case MyMTLPixelFormatBC3_RGBA_sRGB:
                 case MyMTLPixelFormatBC3_RGBA:
@@ -897,8 +906,10 @@ bool KramDecoder::decodeBlocks(
                 return false;
             }
 
+            // Use multiple threads for ASTC decoding, targeting quad-core systems
+            constexpr int decode_thread_count = 4;
             astcenc_context* codec_context = nullptr;
-            error = astcenc_context_alloc(&config, 1, &codec_context);
+            error = astcenc_context_alloc(&config, decode_thread_count, &codec_context);
             if (error != ASTCENC_SUCCESS) {
                 return false;
             }
@@ -2858,6 +2869,10 @@ bool KramEncoder::compressMipLevel(const ImageInfo& info, KTXImage& image,
                 case MyMTLPixelFormatBC1_RGBA_sRGB:
                     format = squish::kBC1;
                     break;
+                case MyMTLPixelFormatBC2_RGBA:
+                case MyMTLPixelFormatBC2_RGBA_sRGB:
+                    format = squish::kBC2;
+                    break;
                 case MyMTLPixelFormatBC3_RGBA_sRGB:
                 case MyMTLPixelFormatBC3_RGBA:
                     format = squish::kBC3;
@@ -2990,10 +3005,6 @@ bool KramEncoder::compressMipLevel(const ImageInfo& info, KTXImage& image,
             else if (info.isColorWeighted) {
                 flags |= ASTCENC_FLG_USE_PERCEPTUAL;
             }
-            else {
-                // all channels are weighted the same
-                flags |= ASTCENC_FLG_MAP_MASK;
-            }
             // don't really need this
             // flags |= ASTCENC_FLG_USE_ALPHA_WEIGHT;
 
@@ -3094,8 +3105,10 @@ bool KramEncoder::compressMipLevel(const ImageInfo& info, KTXImage& image,
                                              ASTCENC_SWZ_B, ASTCENC_SWZ_A};
 
             // could this be built once, and reused across all mips
+            // Use multiple threads for ASTC encoding, targeting quad-core systems
+            constexpr int thread_count = 4;
             astcenc_context* codec_context = nullptr;
-            error = astcenc_context_alloc(&config, 1, &codec_context);
+            error = astcenc_context_alloc(&config, thread_count, &codec_context);
             if (error != ASTCENC_SUCCESS) {
                 return false;
             }
@@ -3134,11 +3147,33 @@ bool KramEncoder::compressMipLevel(const ImageInfo& info, KTXImage& image,
                 gAstcenc_UniqueChannelsInPartitioning = 4;
             }
 #else
-            error = astcenc_compress_image(
-                codec_context, &srcImage, &swizzleEncode,
-                outputTexture.data.data(), mipStorageSize,
-                0); // threadIndex
+            // Use multithreaded compression with worker threads
+            std::vector<std::thread> workers;
+            std::atomic<astcenc_error> compression_error(ASTCENC_SUCCESS);
+            
+            auto compressBlock = [&](int thread_id) {
+                astcenc_error thread_error = astcenc_compress_image(
+                    codec_context, &srcImage, &swizzleEncode,
+                    outputTexture.data.data(), mipStorageSize,
+                    thread_id);
+                if (thread_error != ASTCENC_SUCCESS) {
+                    compression_error.store(thread_error);
+                }
+            };
+            
+            for (int i = 0; i < thread_count; ++i) {
+                workers.emplace_back(compressBlock, i);
+            }
+            
+            for (auto& worker : workers) {
+                worker.join();
+            }
+            
+            error = compression_error.load();
 #endif
+
+            // Reset context for potential reuse with next mip level
+            astcenc_compress_reset(codec_context);
 
             // Or should this context only be freed after all mips?
             astcenc_context_free(codec_context);

@@ -21,8 +21,8 @@
 #include "KramImage.h" // has config defines, move them out
 #include "KramMmapHelper.h"
 #include "KramTimer.h"
-//#define KRAM_VERSION "1.0"
-#include "KramVersion.h"
+#define KRAM_VERSION "1.0"
+//#include "KramVersion.h"
 #include "TaskSystem.h"
 #include "lodepng.h"
 #include "miniz.h"
@@ -1027,8 +1027,12 @@ static const char* formatFormat(MyMTLPixelFormat format)
             fmt = " -format bc4";
             break;
 
-        // case MyMTLPixelFormatBC2_RGBA_sRGB:
-        // case MyMTLPixelFormatBC2_RGBA:
+        case MyMTLPixelFormatBC2_RGBA_sRGB:
+            fmt = " -format bc2 -srgb";
+            break;
+        case MyMTLPixelFormatBC2_RGBA:
+            fmt = " -format bc2";
+            break;
         case MyMTLPixelFormatBC3_RGBA_sRGB:
             fmt = " -format bc3 -srgb";
             break;

@@ -24,8 +24,8 @@ enum MyMTLPixelFormat {
     MyMTLPixelFormatBC1_RGBA = 130,
     MyMTLPixelFormatBC1_RGBA_sRGB = 131,
 
-    // MyMTLPixelFormatBC2_RGBA             = 132,
-    // MyMTLPixelFormatBC2_RGBA_sRGB        = 133,
+    MyMTLPixelFormatBC2_RGBA             = 132,
+    MyMTLPixelFormatBC2_RGBA_sRGB        = 133,
 
     MyMTLPixelFormatBC3_RGBA = 134,
     MyMTLPixelFormatBC3_RGBA_sRGB = 135,

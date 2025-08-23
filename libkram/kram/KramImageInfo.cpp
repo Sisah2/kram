@@ -84,9 +84,9 @@ static MyMTLPixelFormat parseFormat(ImageInfoArgs& infoArgs)
     if (isStringEqual(formatString, "bc1")) {
         format = isSRGBDst ? MyMTLPixelFormatBC1_RGBA_sRGB : MyMTLPixelFormatBC1_RGBA;
     }
-    // else if (isStringEqual(formatString, "bc2")) {
-    //     format = MyMTLPixelFormatBC2_RGBA;
-    // }
+    else if (isStringEqual(formatString, "bc2")) {
+        format = isSRGBDst ? MyMTLPixelFormatBC2_RGBA_sRGB : MyMTLPixelFormatBC2_RGBA;
+    }
     else if (isStringEqual(formatString, "bc3")) {
         format = isSRGBDst ? MyMTLPixelFormatBC3_RGBA_sRGB : MyMTLPixelFormatBC3_RGBA;
     }
@@ -1222,6 +1222,7 @@ void ImageInfo::initWithSourceImage(Image& sourceImage)
             case MyMTLPixelFormatASTC_8x8_LDR:
 
             case MyMTLPixelFormatBC1_RGBA: // 3 channel RGB only
+            case MyMTLPixelFormatBC2_RGBA: // 4 channel RGBA with explicit alpha
             case MyMTLPixelFormatBC3_RGBA:
             // case MyMTLPixelFormatBC6H_RGBFloat:
             // case MyMTLPixelFormatBC6H_RGBUfloat:

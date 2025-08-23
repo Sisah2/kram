@@ -261,8 +261,8 @@ static MyMTLPixelFormat getMetalFormatFromDDS9(const DDS_PIXELFORMAT& ddpf)
         switch (ddpf.fourCC) {
             case D3DFMT_DXT1:
                 return MyMTLPixelFormatBC1_RGBA;
-            //case D3DFMT_DXT2: return MyMTLPixelFormatBC2_RGBA; // isPremul
-            //case D3DFMT_DXT3: return MyMTLPixelFormatBC2_RGBA;
+            case D3DFMT_DXT2: return MyMTLPixelFormatBC2_RGBA; // isPremul
+            case D3DFMT_DXT3: return MyMTLPixelFormatBC2_RGBA;
             case D3DFMT_DXT4:
                 return MyMTLPixelFormatBC3_RGBA; // isPremul
             case D3DFMT_DXT5:
@@ -519,6 +519,9 @@ bool DDSHelper::load(const uint8_t* data, size_t dataSize, KTXImage& image, bool
     }
 
     // Now have a valid KTX or KTX2 file from the DDS
+    
+    // Set the file data length for proper size reporting
+    image.fileDataLength = (int32_t)dataSize;
 
     return true;
 }
