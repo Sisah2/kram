@@ -60,6 +60,14 @@ enum MyMTLPixelFormat {
     MyMTLPixelFormatASTC_8x8_LDR = 212,
     MyMTLPixelFormatASTC_8x8_HDR = 230,
 
+    MyMTLPixelFormatASTC_10x10_sRGB = 198,
+    MyMTLPixelFormatASTC_10x10_LDR = 216,
+    MyMTLPixelFormatASTC_10x10_HDR = 234,
+
+    MyMTLPixelFormatASTC_12x12_sRGB = 202,
+    MyMTLPixelFormatASTC_12x12_LDR = 220,
+    MyMTLPixelFormatASTC_12x12_HDR = 238,
+
     //---------
     // etc2
     MyMTLPixelFormatEAC_R11Unorm = 170,

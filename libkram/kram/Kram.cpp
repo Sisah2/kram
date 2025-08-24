@@ -1128,6 +1128,26 @@ static const char* formatFormat(MyMTLPixelFormat format)
         case MyMTLPixelFormatASTC_8x8_HDR:
             fmt = " -format astc8x8 -hdr";
             break;
+            
+        case MyMTLPixelFormatASTC_10x10_LDR:
+            fmt = " -format astc10x10";
+            break;
+        case MyMTLPixelFormatASTC_10x10_sRGB:
+            fmt = " -format astc10x10 -srgb";
+            break;
+        case MyMTLPixelFormatASTC_10x10_HDR:
+            fmt = " -format astc10x10 -hdr";
+            break;
+            
+        case MyMTLPixelFormatASTC_12x12_LDR:
+            fmt = " -format astc12x12";
+            break;
+        case MyMTLPixelFormatASTC_12x12_sRGB:
+            fmt = " -format astc12x12 -srgb";
+            break;
+        case MyMTLPixelFormatASTC_12x12_HDR:
+            fmt = " -format astc12x12 -hdr";
+            break;
 
         // Explicit formats
         // not really blocks

@@ -136,6 +136,14 @@ static MyMTLPixelFormat parseFormat(ImageInfoArgs& infoArgs)
         format = infoArgs.isHDR ? MyMTLPixelFormatASTC_8x8_HDR : isSRGBDst ? MyMTLPixelFormatASTC_8x8_sRGB
                                                                            : MyMTLPixelFormatASTC_8x8_LDR;
     }
+    else if (isStringEqual(formatString, "astc10x10")) {
+        format = infoArgs.isHDR ? MyMTLPixelFormatASTC_10x10_HDR : isSRGBDst ? MyMTLPixelFormatASTC_10x10_sRGB
+                                                                             : MyMTLPixelFormatASTC_10x10_LDR;
+    }
+    else if (isStringEqual(formatString, "astc12x12")) {
+        format = infoArgs.isHDR ? MyMTLPixelFormatASTC_12x12_HDR : isSRGBDst ? MyMTLPixelFormatASTC_12x12_sRGB
+                                                                             : MyMTLPixelFormatASTC_12x12_LDR;
+    }
 
     // explicit formats
     else if (isStringEqual(formatString, "r8")) {
@@ -310,6 +318,14 @@ static const MyMTLPixelFormat kEncodingFormatsAstcenc[] =
         MyMTLPixelFormatASTC_8x8_HDR,
         MyMTLPixelFormatASTC_8x8_LDR,
         MyMTLPixelFormatASTC_8x8_sRGB,
+
+        MyMTLPixelFormatASTC_10x10_HDR,
+        MyMTLPixelFormatASTC_10x10_LDR,
+        MyMTLPixelFormatASTC_10x10_sRGB,
+
+        MyMTLPixelFormatASTC_12x12_HDR,
+        MyMTLPixelFormatASTC_12x12_LDR,
+        MyMTLPixelFormatASTC_12x12_sRGB,
 };
 
 static const MyMTLPixelFormat kEncodingFormatsSquish[] =
