@@ -692,7 +692,7 @@ bool KramDecoder::decodeBlocks(
                         case MyMTLPixelFormatBC2_RGBA:
                         case MyMTLPixelFormatBC2_RGBA_sRGB:
                             // BC2/DXT3 uses explicit 4-bit alpha
-                            squish::Decompress((uint8_t*)pixels, srcBlock, squish::kBC2);
+                            squish::Decompress((uint8_t*)pixels, srcBlock, squish::kDxt3);
                             break;
                         case MyMTLPixelFormatBC3_RGBA_sRGB:
                         case MyMTLPixelFormatBC3_RGBA:
@@ -772,30 +772,30 @@ bool KramDecoder::decodeBlocks(
 #endif
 #if COMPILE_SQUISH
         else if (useSquish) {
-            squish::TexFormat format = squish::kBC1;
+            int format = squish::kDxt1;
 
             success = true;
 
             switch (blockFormat) {
                 case MyMTLPixelFormatBC1_RGBA:
                 case MyMTLPixelFormatBC1_RGBA_sRGB:
-                    format = squish::kBC1;
+                    format = squish::kDxt1;
                     break;
                 case MyMTLPixelFormatBC2_RGBA:
                 case MyMTLPixelFormatBC2_RGBA_sRGB:
-                    format = squish::kBC2;
+                    format = squish::kDxt3;
                     break;
                 case MyMTLPixelFormatBC3_RGBA_sRGB:
                 case MyMTLPixelFormatBC3_RGBA:
-                    format = squish::kBC3;
+                    format = squish::kDxt5;
                     break;
                 case MyMTLPixelFormatBC4_RSnorm:
                 case MyMTLPixelFormatBC4_RUnorm:
-                    format = squish::kBC4;
+                    format = squish::kBc4;
                     break;
                 case MyMTLPixelFormatBC5_RGSnorm:
                 case MyMTLPixelFormatBC5_RGUnorm:
-                    format = squish::kBC5;
+                    format = squish::kBc5;
                     break;
                 default:
                     KLOGE("Image", "decode unsupported format");
@@ -804,7 +804,7 @@ bool KramDecoder::decodeBlocks(
             }
 
             if (success) {
-                // only handles bc1,3,4,5
+                // only handles bc1-5
                 // TODO: colors still don't look correct on rs, rgs.  Above it always requests unorm.
                 squish::DecompressImage(outputTexture.data(), w, h, srcData, format);
 
@@ -2860,30 +2860,30 @@ bool KramEncoder::compressMipLevel(const ImageInfo& info, KTXImage& image,
                                                             // slighting better
                                                             // quality
 
-            squish::TexFormat format = squish::kBC1;
+            int format = squish::kDxt1;
 
             success = true;
 
             switch (info.pixelFormat) {
                 case MyMTLPixelFormatBC1_RGBA:
                 case MyMTLPixelFormatBC1_RGBA_sRGB:
-                    format = squish::kBC1;
+                    format = squish::kDxt1;
                     break;
                 case MyMTLPixelFormatBC2_RGBA:
                 case MyMTLPixelFormatBC2_RGBA_sRGB:
-                    format = squish::kBC2;
+                    format = squish::kDxt3;
                     break;
                 case MyMTLPixelFormatBC3_RGBA_sRGB:
                 case MyMTLPixelFormatBC3_RGBA:
-                    format = squish::kBC3;
+                    format = squish::kDxt5;
                     break;
                 case MyMTLPixelFormatBC4_RSnorm:
                 case MyMTLPixelFormatBC4_RUnorm:
-                    format = squish::kBC4;
+                    format = squish::kBc4;
                     break;
                 case MyMTLPixelFormatBC5_RGSnorm:
                 case MyMTLPixelFormatBC5_RGUnorm:
-                    format = squish::kBC5;
+                    format = squish::kBc5;
                     break;
                 default:
                     success = false;
@@ -2891,9 +2891,11 @@ bool KramEncoder::compressMipLevel(const ImageInfo& info, KTXImage& image,
             }
 
             if (success) {
+                // Combine format and flags for official squish API
+                int squishFlags = format | flags;
                 squish::CompressImage((const squish::u8*)srcPixelData, w, h,
-                                      outputTexture.data.data(), format, flags,
-                                      weights);
+                                      outputTexture.data.data(), squishFlags,
+                                      const_cast<float*>(weights));
 
                 if (info.isSigned) {
                     doRemapSnormEndpoints = true;

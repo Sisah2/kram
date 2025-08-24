@@ -23,36 +23,18 @@
 
    -------------------------------------------------------------------------- */
 
-#ifndef SQUISH_SINGLECOLOURFIT_H
-#define SQUISH_SINGLECOLOURFIT_H
+#ifndef SQUISH_SIMD_H
+#define SQUISH_SIMD_H
 
-#include "squish.h"
-#include "colourfit.h"
+#include "maths.h"
 
-namespace squish {
+#if SQUISH_USE_ALTIVEC
+#include "simd_ve.h"
+#elif SQUISH_USE_SSE
+#include "simd_sse.h"
+#else
+#include "simd_float.h"
+#endif
 
-class ColourSet;
-struct SingleColourLookup;
 
-class SingleColourFit : public ColourFit
-{
-public:
-    SingleColourFit( ColourSet const* colours, int flags );
-
-private:
-    virtual void Compress3( void* block );
-    virtual void Compress4( void* block );
-
-    void ComputeEndPoints( SingleColourLookup const* const* lookups );
-
-    u8 m_colour[3];
-    Vec3 m_start;
-    Vec3 m_end;
-    u8 m_index;
-    int m_error;
-    int m_besterror;
-};
-
-} // namespace squish
-
-#endif // ndef SQUISH_SINGLECOLOURFIT_H
+#endif // ndef SQUISH_SIMD_H

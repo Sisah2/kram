@@ -212,6 +212,16 @@ static MyMTLPixelFormat getMetalFormatFromDDS9(const DDS_PIXELFORMAT& ddpf)
                 if (ISBITMASK(0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000)) {
                     return MyMTLPixelFormatRGBA8Unorm;
                 }
+                
+                // ARGB8888 format (common in DDS files) - A=0xff000000, R=0x00ff0000, G=0x0000ff00, B=0x000000ff
+                if (ISBITMASK(0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000)) {
+                    return MyMTLPixelFormatRGBA8Unorm; // Will need swizzling to handle ARGB->RGBA
+                }
+                
+                // BGRA8888 format - B=0x0000ff00, G=0x00ff0000, R=0xff000000, A=0x000000ff
+                if (ISBITMASK(0x0000ff00, 0x00ff0000, 0xff000000, 0x000000ff)) {
+                    return MyMTLPixelFormatRGBA8Unorm; // Will need swizzling to handle BGRA->RGBA
+                }
 
                 if (ISBITMASK(0xffffffff, 0, 0, 0)) {
                     // Only 32-bit color channel format in D3D9 was R32F
@@ -330,13 +340,13 @@ bool DDSHelper::load(const uint8_t* data, size_t dataSize, KTXImage& image, bool
         return false;
     }
 
-    // this flag must be set even though just using fourcc to indicate DX10
-    if ((format.flags & DDSPF_FOURCC) == 0) {
-        KLOGE("kram", "missing format.fourCC flag");
+    // Support both compressed formats (FOURCC) and uncompressed formats (RGB)
+    if ((format.flags & DDSPF_FOURCC) == 0 && (format.flags & DDSPF_RGB) == 0) {
+        KLOGE("kram", "unsupported DDS format - neither FOURCC nor RGB flags set");
         return false;
     }
 
-    bool isDDS10 = format.fourCC == FOURCC_DX10;
+    bool isDDS10 = (format.flags & DDSPF_FOURCC) && (format.fourCC == FOURCC_DX10);
     const DDS_HEADER_DXT10& hdr10 = *(const DDS_HEADER_DXT10*)(data + magicSize + sizeof(DDS_HEADER));
 
     MyMTLPixelFormat pixelFormat = MyMTLPixelFormatInvalid;

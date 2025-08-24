@@ -23,36 +23,27 @@
 
    -------------------------------------------------------------------------- */
 
-#ifndef SQUISH_SINGLECOLOURFIT_H
-#define SQUISH_SINGLECOLOURFIT_H
+#ifndef SQUISH_CONFIG_H
+#define SQUISH_CONFIG_H
 
-#include "squish.h"
-#include "colourfit.h"
+// Set to 1 when building squish to use Altivec instructions.
+#ifndef SQUISH_USE_ALTIVEC
+#define SQUISH_USE_ALTIVEC 0
+#endif
 
-namespace squish {
+// Set to 1 or 2 when building squish to use SSE or SSE2 instructions.
+#ifndef SQUISH_USE_SSE
+#define SQUISH_USE_SSE 0
+#endif
 
-class ColourSet;
-struct SingleColourLookup;
+// Internally set SQUISH_USE_SIMD when either Altivec or SSE is available.
+#if SQUISH_USE_ALTIVEC && SQUISH_USE_SSE
+#error "Cannot enable both Altivec and SSE!"
+#endif
+#if SQUISH_USE_ALTIVEC || SQUISH_USE_SSE
+#define SQUISH_USE_SIMD 1
+#else
+#define SQUISH_USE_SIMD 0
+#endif
 
-class SingleColourFit : public ColourFit
-{
-public:
-    SingleColourFit( ColourSet const* colours, int flags );
-
-private:
-    virtual void Compress3( void* block );
-    virtual void Compress4( void* block );
-
-    void ComputeEndPoints( SingleColourLookup const* const* lookups );
-
-    u8 m_colour[3];
-    Vec3 m_start;
-    Vec3 m_end;
-    u8 m_index;
-    int m_error;
-    int m_besterror;
-};
-
-} // namespace squish
-
-#endif // ndef SQUISH_SINGLECOLOURFIT_H
+#endif // ndef SQUISH_CONFIG_H

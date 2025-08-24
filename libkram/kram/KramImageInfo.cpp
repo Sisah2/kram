@@ -317,6 +317,9 @@ static const MyMTLPixelFormat kEncodingFormatsSquish[] =
         MyMTLPixelFormatBC1_RGBA,
         MyMTLPixelFormatBC1_RGBA_sRGB,
 
+        MyMTLPixelFormatBC2_RGBA,
+        MyMTLPixelFormatBC2_RGBA_sRGB,
+
         MyMTLPixelFormatBC3_RGBA,
         MyMTLPixelFormatBC3_RGBA_sRGB,
 
@@ -334,6 +337,9 @@ static const MyMTLPixelFormat kEncodingFormatsBcenc[] =
         // Squish BC1 doesn't look much better. BC7 looks perfect on that file.
         MyMTLPixelFormatBC1_RGBA,
         MyMTLPixelFormatBC1_RGBA_sRGB,
+
+        MyMTLPixelFormatBC2_RGBA,
+        MyMTLPixelFormatBC2_RGBA_sRGB,
 
         MyMTLPixelFormatBC3_RGBA,
         MyMTLPixelFormatBC3_RGBA_sRGB,
