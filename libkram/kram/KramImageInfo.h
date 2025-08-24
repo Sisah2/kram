@@ -94,6 +94,9 @@ public:
     int32_t chunksCount = 0;
 
     int32_t sdfThreshold = 120;
+    
+    // Flip image vertically (for DirectX -> OpenGL coordinate system conversion)
+    bool doFlip = false;
 };
 
 // preset data that contains all inputs about the encoding

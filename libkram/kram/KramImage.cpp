@@ -1147,6 +1147,36 @@ bool Image::resizeImage(int32_t wResize, int32_t hResize, bool resizePow2, Image
     return true;
 }
 
+void Image::flipVertical()
+{
+    if (_pixels.empty() && _pixelsFloat.empty()) {
+        return; // Nothing to flip
+    }
+    
+    if (!_pixels.empty()) {
+        // Flip Color pixel data
+        for (int32_t y = 0; y < _height / 2; ++y) {
+            int32_t topRow = y * _width;
+            int32_t bottomRow = (_height - 1 - y) * _width;
+            
+            for (int32_t x = 0; x < _width; ++x) {
+                std::swap(_pixels[topRow + x], _pixels[bottomRow + x]);
+            }
+        }
+    }
+    else if (!_pixelsFloat.empty()) {
+        // Flip float4 pixel data
+        for (int32_t y = 0; y < _height / 2; ++y) {
+            int32_t topRow = y * _width;
+            int32_t bottomRow = (_height - 1 - y) * _width;
+            
+            for (int32_t x = 0; x < _width; ++x) {
+                std::swap(_pixelsFloat[topRow + x], _pixelsFloat[bottomRow + x]);
+            }
+        }
+    }
+}
+
 bool KramEncoder::encode(ImageInfo& info, Image& singleImage, KTXImage& dstImage) const
 {
     return encodeImpl(info, singleImage, nullptr, dstImage);

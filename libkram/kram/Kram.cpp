@@ -1725,6 +1725,7 @@ void kramEncodeUsage(bool showVersion = true)
           "\t [-sdfThreshold 120]\n"
           "\t [-premul] [-prezero] [-premulrgb]\n"
           "\t [-gray]\n"
+          "\t [-flip]\n"
           "\t [-optopaque]\n"
           "\t [-v]\n"
           "\n"
@@ -1821,6 +1822,8 @@ void kramEncodeUsage(bool showVersion = true)
 
           "\t-gray"
           "\tConvert to grayscale before premul\n"
+          "\t-flip"
+          "\tFlip image vertically (DirectX to OpenGL coordinate system conversion)\n"
 
           // premul is not on by default, but really should be or textures aren't sampled correctly
           // but this really only applies to color channel textures, so off by default.
@@ -2724,6 +2727,9 @@ static int32_t kramAppEncode(vector<const char*>& args)
         else if (isStringEqual(word, "-gray")) {
             isGray = true;
         }
+        else if (isStringEqual(word, "-flip")) {
+            infoArgs.doFlip = true;
+        }
 
         // mip setting
         else if (isStringEqual(word, "-mipmax")) {
@@ -3128,6 +3134,11 @@ static int32_t kramAppEncode(vector<const char*>& args)
     }
     else {
         success = SetupSourceImage(srcFilename, srcImage, isPremulRgb, isGray);
+    }
+    
+    // Apply vertical flip if requested (for DirectX -> OpenGL coordinate system conversion)
+    if (success && infoArgs.doFlip) {
+        srcImage.flipVertical();
     }
 
     if (success) {

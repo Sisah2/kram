@@ -55,6 +55,9 @@ public:
 
     // this is only for 2d images
     bool resizeImage(int32_t wResize, int32_t hResize, bool resizePow2, ImageResizeFilter filter = kImageResizeFilterPoint);
+    
+    // flip image vertically (swaps top and bottom rows)
+    void flipVertical();
 
     // this is width and height of the strip/grid, chunks may be copied out of this
     int32_t width() const { return _width; }
